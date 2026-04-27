@@ -24,7 +24,7 @@ const envoyerOTP = async (req, res) => {
     // TODO: remplacer par Africa's Talking quand activé
     console.log(`📱 OTP [${tel}] : ${otp}`);
 
-    res.json({ message: 'Code envoyé.' });
+    res.json({ message: 'Code envoyé.', dev_otp: otp });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Erreur serveur.' });
