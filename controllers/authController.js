@@ -1,6 +1,13 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const pool = require('../database');
+const AfricasTalking = require('africastalking');
+
+const at = AfricasTalking({
+  username: process.env.AT_USERNAME,
+  apiKey: process.env.AT_API_KEY,
+});
+const sms = at.SMS;
 
 const otpStore = new Map();
 
@@ -18,6 +25,16 @@ const envoyerOTP = async (req, res) => {
     const otp = genererOTP();
     otpStore.set(tel, { otp, expires: Date.now() + 10 * 60 * 1000 });
     console.log(`📱 OTP [${tel}] : ${otp}`);
+
+    try {
+      await sms.send({
+        to: [`+228${tel}`],
+        message: `Votre code Haya : ${otp}. Valable 10 minutes.`,
+      });
+    } catch (smsErr) {
+      console.error('SMS non envoyé:', smsErr.message);
+    }
+
     res.json({ message: 'Code envoyé.', dev_otp: otp });
   } catch (err) {
     console.error(err);
