@@ -27,12 +27,13 @@ const envoyerOTP = async (req, res) => {
     console.log(`📱 OTP [${tel}] : ${otp}`);
 
     try {
-      await sms.send({
+      const result = await sms.send({
         to: [`+228${tel}`],
         message: `Votre code Haya : ${otp}. Valable 10 minutes.`,
       });
+      console.log('📤 SMS résultat:', JSON.stringify(result));
     } catch (smsErr) {
-      console.error('SMS non envoyé:', smsErr.message);
+      console.error('❌ SMS erreur:', smsErr.message);
     }
 
     res.json({ message: 'Code envoyé.', dev_otp: otp });
