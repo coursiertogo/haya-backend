@@ -5,6 +5,7 @@ const pool = require('./database');
 const authRoutes = require('./routes/authRoutes');
 const transactionRoutes = require('./routes/transactionRoutes');
 const demandeRoutes = require('./routes/demandeRoutes');
+const payRoutes = require('./routes/payRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -17,6 +18,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/demandes', demandeRoutes);
+app.use('/pay', payRoutes);
 
 // Route de test
 app.get('/', (req, res) => {
