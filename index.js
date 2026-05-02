@@ -4,6 +4,7 @@ require('dotenv').config();
 const pool = require('./database');
 const authRoutes = require('./routes/authRoutes');
 const transactionRoutes = require('./routes/transactionRoutes');
+const demandeRoutes = require('./routes/demandeRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -15,6 +16,7 @@ app.use(express.json());
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/transactions', transactionRoutes);
+app.use('/api/demandes', demandeRoutes);
 
 // Route de test
 app.get('/', (req, res) => {
