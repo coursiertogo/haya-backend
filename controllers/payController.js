@@ -2,11 +2,12 @@ const pool = require('../database');
 
 const getPayPage = async (req, res) => {
   const { reference } = req.params;
+  const preview = req.query.preview === '1';
   try {
     const [rows] = await pool.query(
-      `SELECT d.*, CONCAT(u.prenom, ' ', COALESCE(NULLIF(u.nom,''), '')) AS nom_complet
+      `SELECT d.*, CONCAT(COALESCE(u.prenom,''), ' ', COALESCE(u.nom,'')) AS nom_complet
        FROM demandes_paiement d
-       JOIN users u ON d.expediteur_id = u.id
+       LEFT JOIN users u ON d.expediteur_id = u.id
        WHERE d.reference = ?`,
       [reference]
     );
@@ -17,7 +18,7 @@ const getPayPage = async (req, res) => {
 
     const d = rows[0];
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.send(pageHtml(d));
+    res.send(pageHtml(d, preview));
   } catch (err) {
     console.error(err);
     res.status(500).send(pageLienInvalide('Erreur serveur.'));
@@ -34,7 +35,7 @@ function formatDate(d) {
   return date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-function pageHtml(d) {
+function pageHtml(d, preview = false) {
   const montant = parseInt(d.montant);
   const eur = (montant / 655.957).toFixed(2);
   const nom = (d.nom_complet || '').trim();
@@ -117,6 +118,8 @@ function pageHtml(d) {
     .btn-payer.desactive .btn-icon { background: var(--subtext); }
     @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(249,115,22,0.3); } 50% { box-shadow: 0 0 0 12px rgba(249,115,22,0); } }
     .btn-payer.pulse { animation: pulse 2s infinite; }
+    .btn-partager { width: 100%; height: 48px; background: transparent; color: var(--nuit); border: 2px solid var(--border); border-radius: 14px; font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 10px; transition: all 0.2s; }
+    .btn-partager:hover { border-color: var(--orange); color: var(--orange); }
     .app-info { text-align: center; margin-top: 20px; font-size: 12px; color: var(--subtext); line-height: 1.6; }
     .app-info a { color: var(--orange); text-decoration: none; font-weight: 500; }
     .footer { text-align: center; margin-top: 24px; font-size: 11px; color: var(--subtext); opacity: 0.6; }
@@ -179,16 +182,36 @@ function pageHtml(d) {
         <span class="detail-value">#${escHtml(ref)}</span>
       </div>
     </div>
-    <button class="btn-payer ${dejaPaye || annule ? 'desactive' : 'pulse'}" onclick="${dejaPaye || annule ? '' : `payer()`}">
+    ${preview ? `
+    <button class="btn-payer" style="background:var(--orange);" onclick="partager()">
+      <div class="btn-icon" style="background:rgba(255,255,255,0.2);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+          <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+        </svg>
+      </div>
+      Envoyer cette demande
+    </button>
+    <p style="text-align:center;font-size:12px;color:var(--subtext);margin-top:10px;">Aperçu · Le destinataire verra le bouton Payer</p>
+    ` : `
+    <button class="btn-payer ${dejaPaye || annule ? 'desactive' : 'pulse'}" onclick="${dejaPaye || annule ? '' : 'payer()'}">
       <div class="btn-icon">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M5 17L12 5l7 12H5z"/></svg>
       </div>
       ${dejaPaye ? 'Déjà payé' : annule ? 'Annulée' : 'Payer avec Haya'}
     </button>
+    <button class="btn-partager" onclick="partager()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+      </svg>
+      Partager cette demande
+    </button>
     <div class="app-info">
       Vous devez avoir <a href="https://play.google.com/store/apps/details?id=com.flexix.haya" target="_blank">Haya</a> installé.<br>
       Pas encore installé ? <a href="https://play.google.com/store/apps/details?id=com.flexix.haya" target="_blank">Télécharger gratuitement</a>
     </div>
+    `}
   </div>
   <div class="footer">Haya · Envoie. C'est parti. · haya.flexix.nl</div>
 </div>
@@ -200,6 +223,16 @@ function pageHtml(d) {
         window.location.href = 'https://play.google.com/store/apps/details?id=com.flexix.haya';
       }
     }, 2000);
+  }
+
+  function partager() {
+    const lien = 'https://haya.flexix.nl/pay/${ref}';
+    const texte = '💳 Demande de paiement — Haya\\n\\n👤 De : ${escHtml(nom)}\\n💰 Montant : FCFA ${fmt(montant)}\\n📋 Objet : ${escHtml(objet)}\\n\\n👇 Payez en 1 clic :';
+    if (navigator.share) {
+      navigator.share({ title: 'Haya · Demande de paiement', text: texte, url: lien }).catch(() => {});
+    } else {
+      window.open('https://wa.me/?text=' + encodeURIComponent(texte + '\\n' + lien), '_blank');
+    }
   }
 </script>
 </body>
